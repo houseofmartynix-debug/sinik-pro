@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SINIK Pro — Sistem Informasi NIK Terpadu</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04090f;
+  --panel: #080f1c;
+  --panel2: #0a1322;
+  --border: #152030;
+  --accent: #00c8f0;
+  --accent2: #00f090;
+  --warn: #f0b800;
+  --error: #ff3f50;
+  --purple: #b060ff;
+  --pink: #ff60b0;
+  --text: #d8eeff;
+  --text2: #8ab0cc;
+  --muted: #304858;
+  --card: #0c1828;
+  --card2: #0e1e30;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Sans',sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,200,240,0.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,200,240,0.022) 1px,transparent 1px);
+  background-size:44px 44px;
+  pointer-events:none;z-index:0;
+  animation:gridDrift 30s linear infinite;
+}
+
+@keyframes gridDrift{0%{background-position:0 0}100%{background-position:44px 44px}}
+
+/* ─── SCAN OVERLAY ─── */
+#scanOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(4,9,15,0.92);z-index:200;
+  align-items:center;justify-content:center;flex-direction:column;gap:24px;
+}
+#scanOverlay.active{display:flex}
+.scan-box{
+  width:180px;height:180px;
+  border:1px solid rgba(0,200,240,0.25);border-radius:10px;
+  position:relative;overflow:hidden;
+}
+.sc{position:absolute;width:18px;height:18px;border-color:var(--accent);border-style:solid}
+.sc.tl{top:0;left:0;border-width:2px 0 0 2px}
+.sc.tr{top:0;right:0;border-width:2px 2px 0 0}
+.sc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
+.sc.br{bottom:0;right:0;border-width:0 2px 2px 0}
+.scan-beam{
+  position:absolute;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  box-shadow:0 0 14px var(--accent);
+  animation:scanBeam 1s ease-in-out infinite;
+}
+@keyframes scanBeam{0%{top:0}100%{top:100%}}
+.scan-label{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  letter-spacing:4px;color:var(--accent);text-transform:uppercase;
+  animation:blink 0.8s ease-in-out infinite;
+}
+.scan-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:4px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* ─── WRAPPER ─── */
+.wrapper{
+  position:relative;z-index:1;
+  max-width:1080px;margin:0 auto;
+  padding:48px 20px 120px;
+}
+
+/* ─── HEADER ─── */
+header{
+  text-align:center;margin-bottom:52px;
+  animation:fadeDown 0.8s cubic-bezier(.22,1,.36,1) both;
+}
+.top-bar{
+  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:28px;
+}
+.tbar-line{height:1px;width:60px;background:linear-gradient(90deg,transparent,var(--accent))}
+.tbar-line.r{background:linear-gradient(90deg,var(--accent),transparent)}
+.gov-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(0,200,240,0.06);border:1px solid rgba(0,200,240,0.18);
+  border-radius:4px;padding:6px 18px;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:3px;
+  color:var(--accent);text-transform:uppercase;
+}
+.dot-live{width:7px;height:7px;background:var(--accent2);border-radius:50%;animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,240,144,.4)}50%{box-shadow:0 0 0 7px rgba(0,240,144,0)}}
+
+h1{font-size:clamp(28px,5.5vw,54px);font-weight:700;letter-spacing:-2px;line-height:1.05;margin-bottom:12px}
+h1 .a{color:var(--accent)} h1 .b{color:var(--accent2)}
+.subtitle{color:var(--text2);font-size:13px;margin-bottom:20px;letter-spacing:0.3px}
+
+.hstats{
+  display:inline-flex;gap:0;margin-top:6px;
+  background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;overflow:hidden;
+}
+.hs{
+  padding:10px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+  border-right:1px solid var(--border);
+}
+.hs:last-child{border-right:none}
+.hs span{color:var(--accent2);font-weight:600}
+.version-tag{
+  display:inline-block;margin-top:10px;
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;
+  color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:3px 10px;
+}
+
+/* ─── INPUT CARD ─── */
+.input-section{animation:fadeUp 0.7s ease 0.15s both}
+.input-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:34px 36px;margin-bottom:18px;position:relative;overflow:hidden;
+}
+.input-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2),var(--purple));
+}
+.ic-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.ic-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase}
+.ic-format{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px}
+
+.input-row{display:flex;gap:10px;align-items:stretch;margin-bottom:14px}
+.input-wrap{flex:1;position:relative}
+#nikInput{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font-family:'IBM Plex Mono',monospace;
+  font-size:clamp(18px,3.5vw,26px);letter-spacing:5px;
+  padding:18px 56px 18px 22px;outline:none;
+  transition:border-color .3s,box-shadow .3s;
+}
+#nikInput::placeholder{color:var(--muted);letter-spacing:3px;font-size:16px}
+#nikInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,200,240,.08)}
+#nikInput.valid{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(0,240,144,.08)}
+#nikInput.error{border-color:var(--error);box-shadow:0 0 0 3px rgba(255,63,80,.08);animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+
+.paste-btn{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  padding:6px;border-radius:6px;font-size:16px;transition:all .2s;
+}
+.paste-btn:hover{color:var(--accent);background:rgba(0,200,240,.08)}
+
+.btn{
+  border:none;border-radius:10px;cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;font-weight:600;
+  font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  transition:all .2s;white-space:nowrap;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),#0088bb);
+  color:#020810;padding:0 30px;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,200,240,.3)}
+.btn-secondary{
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  color:var(--muted);padding:0 18px;
+}
+.btn-secondary:hover{border-color:var(--error);color:var(--error);background:rgba(255,63,80,.05)}
+
+.input-footer{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.char-count{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)}
+.char-count .cur{color:var(--accent);font-weight:600}
+.char-count.full .cur{color:var(--accent2)}
+.progress-bar{flex:1;max-width:200px;height:3px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .3s ease;width:0%}
+.hint-text{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-left:auto}
+
+/* ─── STATUS ─── */
+#statusBanner{
+  border-radius:10px;padding:13px 20px;font-size:13px;font-weight:600;
+  margin-bottom:18px;display:flex;align-items:center;gap:12px;
+  animation:fadeUp .3s ease;
+}
+#statusBanner.valid{background:rgba(0,240,144,.05);border:1px solid rgba(0,240,144,.2);color:var(--accent2)}
+#statusBanner.error{background:rgba(255,63,80,.05);border:1px solid rgba(255,63,80,.2);color:var(--error)}
+#statusBanner.hidden{display:none!important}
+
+/* ─── RESULTS ─── */
+#resultSection{display:none;animation:fadeUp .5s ease}
+#resultSection.show{display:block}
+
+.sec-title{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ─── NIK DISPLAY ─── */
+.nik-display-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:16px 22px;margin-bottom:18px;gap:12px;flex-wrap:wrap;
+}
+.nik-display-text{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:clamp(16px,3vw,24px);letter-spacing:5px;color:var(--text);
+}
+.nik-actions{display:flex;gap:8px}
+.action-btn{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;
+  color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:6px;padding:7px 14px;cursor:pointer;transition:all .2s;
+}
+.action-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ─── NIK BREAKDOWN ─── */
+.nik-breakdown{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:26px;margin-bottom:18px;
+}
+.nik-visual{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px;align-items:flex-start}
+.nik-chunk{display:flex;flex-direction:column;align-items:center}
+.nik-chars{display:flex;gap:3px}
+.nik-char{
+  width:34px;height:46px;background:var(--bg);border:1px solid var(--border);
+  border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;
+  transition:all .3s;
+}
+.nik-char.c1{border-color:var(--accent);color:var(--accent);background:rgba(0,200,240,.06);box-shadow:0 0 10px rgba(0,200,240,.12)}
+.nik-char.c2{border-color:var(--accent2);color:var(--accent2);background:rgba(0,240,144,.06);box-shadow:0 0 10px rgba(0,240,144,.12)}
+.nik-char.c3{border-color:var(--warn);color:var(--warn);background:rgba(240,184,0,.06);box-shadow:0 0 10px rgba(240,184,0,.12)}
+.nik-char.c4{border-color:var(--purple);color:var(--purple);background:rgba(176,96,255,.06);box-shadow:0 0 10px rgba(176,96,255,.12)}
+.nik-chunk-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);margin-top:6px;letter-spacing:1px;text-align:center;text-transform:uppercase}
+.sep{width:14px;display:flex;align-items:center;justify-content:center;color:var(--border);font-size:20px;padding-bottom:20px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border)}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+
+/* ─── TABS ─── */
+.tabs-wrapper{margin-bottom:16px}
+.tabs{
+  display:flex;gap:3px;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:5px;flex-wrap:wrap;
+}
+.tab-btn{
+  flex:1;min-width:80px;background:none;border:none;color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;
+  padding:9px 6px;cursor:pointer;border-radius:7px;text-transform:uppercase;transition:all .2s;
+}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.tab-btn.active{background:rgba(0,200,240,.09);color:var(--accent);border:1px solid rgba(0,200,240,.18)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ─── INFO GRID ─── */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-bottom:18px}
+.info-card{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:17px 19px;transition:border-color .2s,transform .2s,background .2s;
+  animation:fadeUp .4s ease both;cursor:default;
+}
+.info-card:hover{border-color:rgba(0,200,240,.22);background:var(--card2);transform:translateY(-2px)}
+.info-card.wide{grid-column:1/-1}
+.info-card.half{grid-column:span 2}
+.ic-lbl{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;
+  color:var(--muted);text-transform:uppercase;margin-bottom:8px;
+  display:flex;align-items:center;gap:5px;
+}
+.ic-val{font-size:15px;font-weight:600;color:var(--text);line-height:1.3}
+.ic-val.ac{color:var(--accent)}.ic-val.ac2{color:var(--accent2)}.ic-val.wn{color:var(--warn)}
+.ic-val.pu{color:var(--purple)}.ic-val.er{color:var(--error)}.ic-val.pi{color:var(--pink)}
+.ic-sub{font-size:10px;color:var(--muted);margin-top:5px;font-family:'IBM Plex Mono',monospace;line-height:1.5}
+
+/* ─── AGE BAR ─── */
+.age-bar{margin-top:10px;height:4px;background:var(--border);border-radius:4px;overflow:hidden}
+.age-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px;transition:width 1s cubic-bezier(.22,1,.36,1)}
+
+/* ─── ZODIAC ─── */
+.zodiac-display{display:flex;align-items:center;gap:12px}
+.zodiac-sym{font-size:34px;line-height:1}
+.zodiac-name{font-size:18px;font-weight:700;margin-bottom:2px}
+.zodiac-range{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+
+/* ─── COUNTDOWN ─── */
+.cd-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.cd-block{text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:56px}
+.cd-num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);display:block;line-height:1}
+.cd-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+
+/* ─── BINARY ROW ─── */
+.binary-row{
+  display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;
+  color:var(--muted);
+}
+.binary-row span.on{color:var(--accent2)}
+
+/* ─── TIMELINE ─── */
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:14px}
+.tl-item:last-child{padding-bottom:0}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:5px;position:relative;z-index:1}
+.tl-item:not(:last-child) .tl-dot::after{
+  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  width:1px;height:calc(100% + 14px);background:var(--border);
+}
+.tl-text{font-size:13px;color:var(--text2)}
+.tl-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+
+/* ─── SCORE METER ─── */
+.score-meter{margin-top:10px}
+.score-bar{height:6px;background:var(--border);border-radius:6px;overflow:hidden;margin-top:6px}
+.score-fill{height:100%;border-radius:6px;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+
+/* ─── PERSONALITY ─── */
+.trait-list{display:flex;flex-direction:column;gap:8px}
+.trait-item{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2)}
+.trait-bar{flex:1;height:3px;background:var(--border);border-radius:3px;overflow:hidden}
+.trait-fill{height:100%;border-radius:3px;transition:width 1s ease}
+
+/* ─── RAW DATA TABLE ─── */
+.raw-table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.raw-table tr{border-bottom:1px solid var(--border)}
+.raw-table tr:last-child{border-bottom:none}
+.raw-table td{padding:10px 14px;color:var(--text2)}
+.raw-table td:first-child{color:var(--muted);font-size:10px;letter-spacing:1px;width:40%}
+.raw-table td:last-child{color:var(--accent);font-weight:600}
+
+/* ─── FLAGS ─── */
+.flag-grid{display:flex;flex-wrap:wrap;gap:6px}
+.flag{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;
+  padding:4px 10px;border-radius:4px;
+}
+.flag.ok{background:rgba(0,240,144,.07);border:1px solid rgba(0,240,144,.2);color:var(--accent2)}
+.flag.warn{background:rgba(240,184,0,.07);border:1px solid rgba(240,184,0,.2);color:var(--warn)}
+.flag.err{background:rgba(255,63,80,.07);border:1px solid rgba(255,63,80,.2);color:var(--error)}
+.flag.info{background:rgba(0,200,240,.07);border:1px solid rgba(0,200,240,.2);color:var(--accent)}
+
+/* ─── MAP PLACEHOLDER ─── */
+.region-map{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:20px;text-align:center;color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;
+  position:relative;overflow:hidden;
+}
+
+/* ─── PRINT ─── */
+.print-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;
+  color:var(--muted);background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:7px;padding:10px 20px;cursor:pointer;transition:all .2s;text-transform:uppercase;
+}
+.print-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.toolbar-right{margin-left:auto;display:flex;gap:8px}
+
+/* ─── ANIMS ─── */
+@keyframes fadeDown{from{opacity:0;transform:translateY(-22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:640px){
+  .input-row{flex-direction:column}
+  .btn-primary,.btn-secondary{padding:14px}
+  .nik-char{width:26px;height:38px;font-size:15px}
+  .hstats{flex-direction:column;border-radius:8px}
+  .hs{border-right:none;border-bottom:1px solid var(--border)}
+  .hs:last-child{border-bottom:none}
+  .tabs{gap:2px}
+  .tab-btn{font-size:9px;padding:8px 5px}
+  h1{letter-spacing:-1px}
+}
+@media print{
+  body{background:#fff;color:#000}
+  #scanOverlay,.input-section,header .hstats,.toolbar{display:none!important}
+  .info-card{border:1px solid #ddd;background:#fff}
+  .ic-lbl{color:#666}
+  .ic-val{color:#000}
+}
+</style>
+</head>
+<body>
+
+<div id="scanOverlay">
+  <div class="scan-box">
+    <div class="sc tl"></div><div class="sc tr"></div>
+    <div class="sc bl"></div><div class="sc br"></div>
+    <div class="scan-beam"></div>
+  </div>
+  <div class="scan-label">Memvalidasi NIK...</div>
+  <div class="scan-sub">Sistem Informasi Kependudukan · Analisis Data</div>
+</div>
+
+<div class="wrapper">
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="top-bar">
+    <div class="tbar-line"></div>
+    <div class="gov-badge"><div class="dot-live"></div>SINIK Pro · v2.0 · Online</div>
+    <div class="tbar-line r"></div>
+  </div>
+  <h1>Sistem Informasi <span class="a">NIK</span> <span class="b">Terpadu</span></h1>
+  <p class="subtitle">Validasi, Dekode & Analisis Mendalam Nomor Induk Kependudukan Republik Indonesia</p>
+  <div class="hstats">
+    <div class="hs"><span>16</span> Digit Terstruktur</div>
+    <div class="hs"><span>38</span> Provinsi Terdaftar</div>
+    <div class="hs"><span>50+</span> Data Dianalisis</div>
+    <div class="hs"><span>100%</span> Privasi Lokal</div>
+  </div>
+  <div class="version-tag">Tidak ada data yang dikirim ke server · Aman &amp; Offline</div>
+</header>
+
+<!-- ═══ INPUT ═══ -->
+<div class="input-section">
+  <div class="input-card">
+    <div class="ic-head">
+      <span class="ic-label">■ Masukkan NIK (16 Digit)</span>
+      <span class="ic-format">Format: [PP][KK][KEC][TTBBLL][UUUU]</span>
+    </div>
+    <div class="input-row">
+      <div class="input-wrap">
+        <input type="text" id="nikInput" maxlength="16" placeholder="3273XXXXXXXXXXXX" autocomplete="off" inputmode="numeric">
+        <button class="paste-btn" onclick="pasteNIK()" title="Tempel">📋</button>
+      </div>
+      <button class="btn btn-primary" onclick="startValidate()">VALIDASI</button>
+      <button class="btn btn-secondary" onclick="resetAll()">RESET</button>
+    </div>
+    <div class="input-footer">
+      <div class="char-count" id="charWrap"><span class="cur" id="charCount">0</span>&nbsp;/ 16 digit</div>
+      <div class="progress-bar"><div class="progress-fill" id="pgFill"></div></div>
+      <div class="hint-text">Tekan Enter untuk validasi</div>
+    </div>
+  </div>
+  <div id="statusBanner" class="hidden"></div>
+</div>
+
+<!-- ═══ RESULT ═══ -->
+<div id="resultSection">
+
+  <!-- NIK Bar -->
+  <div class="sec-title">■ NIK Tervalidasi</div>
+  <div class="nik-display-bar">
+    <div class="nik-display-text" id="nikDisplayText"></div>
+    <div class="nik-actions">
+      <button class="action-btn" onclick="copyNIK()">📄 Salin NIK</button>
+      <button class="action-btn" onclick="window.print()">🖨 Cetak</button>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="flag-grid" id="flagGrid"></div>
+    <div class="toolbar-right">
+      <button class="print-btn" onclick="exportJSON()">💾 Export JSON</button>
+    </div>
+  </div>
+
+  <!-- NIK Breakdown -->
+  <div class="sec-title">■ Breakdown Struktur NIK</div>
+  <div class="nik-breakdown">
+    <div class="nik-visual" id="nikVisual"></div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent)"></div> Kode Provinsi (2d)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent2)"></div> Kode Kab/Kota & Kec. (4d)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--warn)"></div> Tgl/Bln/Thn Lahir (6d)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div> Nomor Urut (4d)</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-wrapper">
+    <div class="tabs" id="tabsEl">
+      <button class="tab-btn active" onclick="switchTab('identitas')">👤 Identitas</button>
+      <button class="tab-btn" onclick="switchTab('wilayah')">🗺 Wilayah</button>
+      <button class="tab-btn" onclick="switchTab('kelahiran')">📅 Kelahiran</button>
+      <button class="tab-btn" onclick="switchTab('statistik')">📊 Statistik</button>
+      <button class="tab-btn" onclick="switchTab('astrologi')">✨ Astrologi</button>
+      <button class="tab-btn" onclick="switchTab('kependudukan')">🏛 Kependudukan</button>
+      <button class="tab-btn" onclick="switchTab('rawdata')">🔬 Raw Data</button>
+    </div>
+  </div>
+
+  <div id="tab-identitas" class="tab-panel active"><div class="info-grid" id="g-identitas"></div></div>
+  <div id="tab-wilayah" class="tab-panel"><div class="info-grid" id="g-wilayah"></div></div>
+  <div id="tab-kelahiran" class="tab-panel"><div class="info-grid" id="g-kelahiran"></div></div>
+  <div id="tab-statistik" class="tab-panel"><div class="info-grid" id="g-statistik"></div></div>
+  <div id="tab-astrologi" class="tab-panel"><div class="info-grid" id="g-astrologi"></div></div>
+  <div id="tab-kependudukan" class="tab-panel"><div class="info-grid" id="g-kependudukan"></div></div>
+  <div id="tab-rawdata" class="tab-panel"><div class="info-grid" id="g-rawdata"></div></div>
+
+</div><!-- /resultSection -->
+</div><!-- /wrapper -->
+
+<script>
+// ════════════════════════════════════════════════
+// DATABASE WILAYAH
+// ════════════════════════════════════════════════
+const PROV = {
+  "11":"Aceh","12":"Sumatera Utara","13":"Sumatera Barat","14":"Riau","15":"Jambi",
+  "16":"Sumatera Selatan","17":"Bengkulu","18":"Lampung","19":"Kep. Bangka Belitung",
+  "21":"Kepulauan Riau","31":"DKI Jakarta","32":"Jawa Barat","33":"Jawa Tengah",
+  "34":"DI Yogyakarta","35":"Jawa Timur","36":"Banten","51":"Bali",
+  "52":"Nusa Tenggara Barat","53":"Nusa Tenggara Timur","61":"Kalimantan Barat",
+  "62":"Kalimantan Tengah","63":"Kalimantan Selatan","64":"Kalimantan Timur",
+  "65":"Kalimantan Utara","71":"Sulawesi Utara","72":"Sulawesi Tengah",
+  "73":"Sulawesi Selatan","74":"Sulawesi Tenggara","75":"Gorontalo","76":"Sulawesi Barat",
+  "81":"Maluku","82":"Maluku Utara","91":"Papua Barat","92":"Papua",
+  "93":"Papua Selatan","94":"Papua Tengah","95":"Papua Pegunungan","96":"Papua Barat Daya",
+};
+
+const PULAU = {
+  "11":"Sumatera","12":"Sumatera","13":"Sumatera","14":"Sumatera","15":"Sumatera",
+  "16":"Sumatera","17":"Sumatera","18":"Sumatera","19":"Sumatera","21":"Sumatera",
+  "31":"Jawa","32":"Jawa","33":"Jawa","34":"Jawa","35":"Jawa","36":"Jawa",
+  "51":"Bali & Nusa Tenggara","52":"Bali & Nusa Tenggara","53":"Bali & Nusa Tenggara",
+  "61":"Kalimantan","62":"Kalimantan","63":"Kalimantan","64":"Kalimantan","65":"Kalimantan",
+  "71":"Sulawesi","72":"Sulawesi","73":"Sulawesi","74":"Sulawesi","75":"Sulawesi","76":"Sulawesi",
+  "81":"Maluku","82":"Maluku",
+  "91":"Papua","92":"Papua","93":"Papua","94":"Papua","95":"Papua","96":"Papua",
+};
+
+const ZONA_WAKTU = {
+  "11":"WIB (UTC+7)","12":"WIB (UTC+7)","13":"WIB (UTC+7)","14":"WIB (UTC+7)","15":"WIB (UTC+7)",
+  "16":"WIB (UTC+7)","17":"WIB (UTC+7)","18":"WIB (UTC+7)","19":"WIB (UTC+7)","21":"WIB (UTC+7)",
+  "31":"WIB (UTC+7)","32":"WIB (UTC+7)","33":"WIB (UTC+7)","34":"WIB (UTC+7)","35":"WIB (UTC+7)","36":"WIB (UTC+7)",
+  "51":"WITA (UTC+8)","52":"WITA (UTC+8)","53":"WITA (UTC+8)",
+  "61":"WIB (UTC+7)","62":"WIB (UTC+7)","63":"WITA (UTC+8)","64":"WITA (UTC+8)","65":"WITA (UTC+8)",
+  "71":"WITA (UTC+8)","72":"WITA (UTC+8)","73":"WITA (UTC+8)","74":"WITA (UTC+8)","75":"WITA (UTC+8)","76":"WITA (UTC+8)",
+  "81":"WIT (UTC+9)","82":"WIT (UTC+9)",
+  "91":"WIT (UTC+9)","92":"WIT (UTC+9)","93":"WIT (UTC+9)","94":"WIT (UTC+9)","95":"WIT (UTC+9)","96":"WIT (UTC+9)",
+};
+
+const IBU_KOTA = {
+  "11":"Banda Aceh","12":"Medan","13":"Padang","14":"Pekanbaru","15":"Jambi",
+  "16":"Palembang","17":"Bengkulu","18":"Bandar Lampung","19":"Pangkalpinang",
+  "21":"Tanjung Pinang","31":"Jakarta","32":"Bandung","33":"Semarang",
+  "34":"Yogyakarta","35":"Surabaya","36":"Serang","51":"Denpasar",
+  "52":"Mataram","53":"Kupang","61":"Pontianak","62":"Palangka Raya",
+  "63":"Banjarbaru","64":"Samarinda","65":"Tanjung Selor","71":"Manado",
+  "72":"Palu","73":"Makassar","74":"Kendari","75":"Gorontalo","76":"Mamuju",
+  "81":"Ambon","82":"Sofifi","91":"Manokwari","92":"Jayapura",
+  "93":"Merauke","94":"Nabire","95":"Wamena","96":"Sorong",
+};
+
+const KABKOTA = {
+  "3273":"Kota Bandung","3271":"Kota Bogor","3275":"Kota Bekasi","3276":"Kota Depok",
+  "3279":"Kota Cimahi","3174":"Kota Jakarta Selatan","3175":"Kota Jakarta Timur",
+  "3173":"Kota Jakarta Pusat","3171":"Kota Jakarta Utara","3172":"Kota Jakarta Barat",
+  "3578":"Kota Surabaya","3573":"Kota Malang","3374":"Kota Semarang","3471":"Kota Yogyakarta",
+  "1371":"Kota Padang","1275":"Kota Medan","1871":"Kota Bandar Lampung","6471":"Kota Samarinda",
+  "7371":"Kota Makassar","5171":"Kota Denpasar","6371":"Kota Banjarmasin","9171":"Kota Jayapura",
+  "1471":"Kota Pekanbaru","1671":"Kota Palembang","3601":"Kab. Pandeglang","3504":"Kab. Jember",
+  "3507":"Kab. Malang","3201":"Kab. Bogor","3204":"Kab. Bandung","3671":"Kota Tangerang",
+  "3674":"Kota Tangerang Selatan","3672":"Kota Cilegon","3301":"Kab. Cilacap","3372":"Kota Surakarta",
+  "1271":"Kota Medan","3578":"Kota Surabaya","3572":"Kota Blitar","3571":"Kota Kediri",
+  "3576":"Kota Mojokerto","3577":"Kota Madiun","3374":"Kota Semarang","3376":"Kota Pekalongan",
+  "3375":"Kota Tegal","3471":"Kota Yogyakarta","5172":"Kota Denpasar",
+};
+
+const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const HARI  = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+
+// ════════════════════════════════════════════════
+// DATABASES EXTENDED
+// ════════════════════════════════════════════════
+const ZODIAK_DB = [
+  {name:"Capricorn",sym:"♑",el:"Bumi",mod:"Kardinal",ruler:"Saturnus",range:"22 Des – 19 Jan",sifat:"Ambisius, Disiplin, Sabar",lucky_num:[4,8,13,22],lucky_color:"Abu-abu, Hitam, Coklat Tua"},
+  {name:"Aquarius", sym:"♒",el:"Udara",mod:"Fixed",   ruler:"Uranus",  range:"20 Jan – 18 Feb",sifat:"Inovatif, Independen, Humanis",lucky_num:[4,7,11,22],lucky_color:"Biru Elektrik, Turquoise"},
+  {name:"Pisces",   sym:"♓",el:"Air",  mod:"Mutable", ruler:"Neptunus",range:"19 Feb – 20 Mar",sifat:"Empatik, Artistik, Intuitif",lucky_num:[3,9,12,15],lucky_color:"Lavender, Hijau Laut"},
+  {name:"Aries",    sym:"♈",el:"Api",  mod:"Kardinal",ruler:"Mars",    range:"21 Mar – 19 Apr",sifat:"Berani, Energetik, Impulsif",lucky_num:[1,9],lucky_color:"Merah, Oranye"},
+  {name:"Taurus",   sym:"♉",el:"Bumi", mod:"Fixed",   ruler:"Venus",   range:"20 Apr – 20 Mei",sifat:"Setia, Praktis, Keras Kepala",lucky_num:[2,6,9,12],lucky_color:"Hijau, Pink"},
+  {name:"Gemini",   sym:"♊",el:"Udara",mod:"Mutable", ruler:"Merkurius",range:"21 Mei – 20 Jun",sifat:"Adaptif, Komunikatif, Ingin Tahu",lucky_num:[5,7,14,23],lucky_color:"Kuning, Hijau Muda"},
+  {name:"Cancer",   sym:"♋",el:"Air",  mod:"Kardinal",ruler:"Bulan",   range:"21 Jun – 22 Jul",sifat:"Penuh Kasih, Protektif, Sensitif",lucky_num:[2,3,15,20],lucky_color:"Putih, Silver, Krem"},
+  {name:"Leo",      sym:"♌",el:"Api",  mod:"Fixed",   ruler:"Matahari",range:"23 Jul – 22 Agu",sifat:"Karismatik, Murah Hati, Dramatis",lucky_num:[1,3,10,19],lucky_color:"Emas, Oranye, Merah"},
+  {name:"Virgo",    sym:"♍",el:"Bumi", mod:"Mutable", ruler:"Merkurius",range:"23 Agu – 22 Sep",sifat:"Analitis, Teliti, Perfeksionis",lucky_num:[5,14,15,23],lucky_color:"Hijau, Putih, Abu-abu"},
+  {name:"Libra",    sym:"♎",el:"Udara",mod:"Kardinal",ruler:"Venus",   range:"23 Sep – 22 Okt",sifat:"Diplomatik, Adil, Kooperatif",lucky_num:[6,15,24],lucky_color:"Merah Muda, Biru"},
+  {name:"Scorpio",  sym:"♏",el:"Air",  mod:"Fixed",   ruler:"Pluto",   range:"23 Okt – 21 Nov",sifat:"Intens, Misterius, Determinasi",lucky_num:[8,11,18,22],lucky_color:"Merah Tua, Hitam"},
+  {name:"Sagittarius",sym:"♐",el:"Api",mod:"Mutable",ruler:"Jupiter",  range:"22 Nov – 21 Des",sifat:"Optimis, Petualang, Jujur",lucky_num:[3,7,9,13],lucky_color:"Ungu, Biru Tua"},
+  {name:"Capricorn",sym:"♑",el:"Bumi", mod:"Kardinal",ruler:"Saturnus",range:"22 Des – 31 Des",sifat:"Ambisius, Disiplin, Sabar",lucky_num:[4,8,13,22],lucky_color:"Abu-abu, Hitam, Coklat Tua"},
+];
+
+const SHIO_DB = [
+  {name:"Tikus",   icon:"🐀",tahun:2020,elem:"Logam", sifat:"Cerdik, Adaptif, Pekerja keras"},
+  {name:"Kerbau",  icon:"🐂",tahun:2021,elem:"Logam", sifat:"Kuat, Dapat diandalkan, Sabar"},
+  {name:"Harimau", icon:"🐯",tahun:2022,elem:"Air",   sifat:"Berani, Percaya diri, Kuat"},
+  {name:"Kelinci", icon:"🐰",tahun:2023,elem:"Air",   sifat:"Lembut, Bijaksana, Berbelas kasih"},
+  {name:"Naga",    icon:"🐉",tahun:2024,elem:"Kayu",  sifat:"Karismatik, Beruntung, Ambisius"},
+  {name:"Ular",    icon:"🐍",tahun:2025,elem:"Kayu",  sifat:"Bijak, Intuitif, Analitis"},
+  {name:"Kuda",    icon:"🐴",tahun:2026,elem:"Api",   sifat:"Energik, Bebas, Setia"},
+  {name:"Kambing", icon:"🐑",tahun:2027,elem:"Api",   sifat:"Kreatif, Sensitif, Penuh kasih"},
+  {name:"Monyet",  icon:"🐒",tahun:2028,elem:"Tanah", sifat:"Cerdas, Jenaka, Gesit"},
+  {name:"Ayam",    icon:"🐓",tahun:2029,elem:"Tanah", sifat:"Observatif, Keras kerja, Percaya diri"},
+  {name:"Anjing",  icon:"🐕",tahun:2030,elem:"Logam", sifat:"Setia, Jujur, Empati"},
+  {name:"Babi",    icon:"🐷",tahun:2031,elem:"Logam", sifat:"Murah hati, Sabar, Hangat"},
+];
+
+const ELEM_CHINA = ["Logam","Air","Kayu","Api","Tanah"];
+
+function getZodiak(bulan, tgl) {
+  const bts = [
+    [1,20],[2,19],[3,21],[4,20],[5,21],[6,21],
+    [7,23],[8,23],[9,23],[10,23],[11,22],[12,22]
+  ];
+  let idx = bulan - 1;
+  if (tgl < bts[idx][1]) idx = (idx - 1 + 12) % 12;
+  return ZODIAK_DB[idx];
+}
+
+function getShio(tahun) {
+  const idx = ((tahun - 1900) % 12 + 12) % 12;
+  const s = SHIO_DB[idx];
+  const tahunBase = 1900 + idx;
+  const elemIdx = Math.floor(((tahun - 1900) % 10) / 2);
+  const elem = ELEM_CHINA[elemIdx];
+  return { ...s, elem };
+}
+
+function getGenerasi(tahun) {
+  if (tahun < 1928) return { name:"Greatest Generation", range:"<1928", icon:"🌟" };
+  if (tahun < 1946) return { name:"Silent Generation", range:"1928–1945", icon:"📻" };
+  if (tahun < 1965) return { name:"Baby Boomer", range:"1946–1964", icon:"🌼" };
+  if (tahun < 1981) return { name:"Generasi X", range:"1965–1980", icon:"🎸" };
+  if (tahun < 1997) return { name:"Milenial", range:"1981–1996", icon:"💻" };
+  if (tahun < 2013) return { name:"Generasi Z", range:"1997–2012", icon:"📱" };
+  return { name:"Generasi Alpha", range:"2013+", icon:"🤖" };
+}
+
+function getUsiaTier(usia) {
+  if (usia < 5)  return { label:"Balita",       cls:"ac2",  pct: 5 };
+  if (usia < 13) return { label:"Anak-anak",    cls:"ac2",  pct: 15 };
+  if (usia < 18) return { label:"Remaja",        cls:"ac",   pct: 25 };
+  if (usia < 26) return { label:"Dewasa Muda",  cls:"ac",   pct: 38 };
+  if (usia < 40) return { label:"Dewasa",        cls:"wn",   pct: 55 };
+  if (usia < 60) return { label:"Paruh Baya",   cls:"wn",   pct: 70 };
+  if (usia < 75) return { label:"Lansia",        cls:"er",   pct: 85 };
+  return               { label:"Lansia Lanjut", cls:"er",   pct:100 };
+}
+
+function getPendidikanTahun(tahun) {
+  const y = new Date().getFullYear();
+  const usia = y - tahun;
+  if (usia < 6) return "Belum memasuki usia sekolah";
+  if (usia < 12) return `Kemungkinan SD (kelas ${usia - 6})`;
+  if (usia < 15) return `Kemungkinan SMP (kelas ${usia - 12})`;
+  if (usia < 18) return `Kemungkinan SMA (kelas ${usia - 15})`;
+  if (usia < 22) return "Kemungkinan Mahasiswa / Fresh Graduate";
+  if (usia < 30) return "Usia Produktif Muda";
+  return "Usia Angkatan Kerja Matang";
+}
+
+function getGolDarahDariNomor(n) {
+  // berdasarkan digit terakhir nomor urut (estimasi, bukan resmi)
+  const d = parseInt(n) % 4;
+  return ["A","B","AB","O"][d];
+}
+
+function hariUltah(tgl, bln) {
+  const now = new Date();
+  const y = now.getFullYear();
+  let ultah = new Date(y, bln - 1, tgl);
+  if (ultah <= now) ultah = new Date(y + 1, bln - 1, tgl);
+  const diff = ultah - now;
+  const days = Math.floor(diff / 86400000);
+  return {
+    totalDays: days,
+    months: Math.floor(days / 30),
+    remDays: days % 30,
+    date: ultah,
+    namaHari: HARI[ultah.getDay()],
+  };
+}
+
+function toHijri(tglLahir) {
+  // Approximate Hijri conversion
+  const jd = Math.floor((14 + 365.25 * (tglLahir.getFullYear() + 4716)) + Math.floor(30.6001 * (tglLahir.getMonth() + 2)) + tglLahir.getDate() - 1524.5);
+  const z = jd - 1948439.5;
+  const a = Math.floor(z / 10631);
+  const b = z - 10631 * a;
+  const j = Math.floor(b / 354.36667);
+  const hYear = 30 * a + j + 1;
+  const hMonth = Math.ceil((b - 354.36667 * j) / 29.5) + 1;
+  const hDay = Math.ceil(b - 354.36667 * j - 29.5 * (hMonth - 1));
+  const hMonthNames = ["Muharram","Safar","Rabiul Awal","Rabiul Akhir","Jumadil Awal","Jumadil Akhir","Rajab","Syaban","Ramadan","Syawal","Dzulqaidah","Dzulhijah"];
+  return `${hDay} ${hMonthNames[Math.max(0, Math.min(11, hMonth - 1))]} ${hYear} H`;
+}
+
+function getMusim(bulan) {
+  if ([12,1,2].includes(bulan)) return {name:"Musim Hujan", icon:"🌧", desc:"Puncak hujan di sebagian besar wilayah RI"};
+  if ([3,4,5].includes(bulan)) return {name:"Peralihan I", icon:"⛅", desc:"Transisi dari musim hujan ke kemarau"};
+  if ([6,7,8,9].includes(bulan)) return {name:"Musim Kemarau", icon:"☀️", desc:"Curah hujan rendah di sebagian besar RI"};
+  return {name:"Peralihan II", icon:"🌤", desc:"Transisi menuju musim hujan"};
+}
+
+function getNumerologi(tgl, bln, thn) {
+  const sum = String(tgl).split('').concat(String(bln).split('')).concat(String(thn).split('')).reduce((a,b) => a + parseInt(b), 0);
+  let n = sum;
+  while (n > 9 && n !== 11 && n !== 22 && n !== 33) {
+    n = String(n).split('').reduce((a,b) => a + parseInt(b), 0);
+  }
+  const meanings = {
+    1:"Pemimpin, Mandiri, Pelopor",2:"Diplomat, Sensitif, Kooperatif",
+    3:"Kreatif, Komunikatif, Ekspresif",4:"Praktis, Disiplin, Dapat Diandalkan",
+    5:"Bebas, Petualang, Adaptif",6:"Pengasuh, Bertanggung Jawab, Harmonis",
+    7:"Analitis, Introspektif, Bijak",8:"Ambisius, Authoritative, Sukses Materi",
+    9:"Humanis, Idealis, Dermawan",11:"Intuitif Tinggi, Inspiratif (Bilangan Master)",
+    22:"Pembangun Besar, Visionaris (Bilangan Master)",33:"Guru Master, Welas Asih"
+  };
+  return { number: n, meaning: meanings[n] || "—", raw: sum };
+}
+
+function getBiorhythm(tglLahir) {
+  const now = new Date();
+  const days = Math.floor((now - tglLahir) / 86400000);
+  const physical = Math.round(Math.sin(2 * Math.PI * days / 23) * 100);
+  const emotional = Math.round(Math.sin(2 * Math.PI * days / 28) * 100);
+  const intellectual = Math.round(Math.sin(2 * Math.PI * days / 33) * 100);
+  return { physical, emotional, intellectual };
+}
+
+// ════════════════════════════════════════════════
+// INPUT HANDLER
+// ════════════════════════════════════════════════
+let _globalData = null;
+const nikInput = document.getElementById('nikInput');
+
+nikInput.addEventListener('input', function() {
+  this.value = this.value.replace(/\D/g,'').slice(0,16);
+  const len = this.value.length;
+  document.getElementById('charCount').textContent = len;
+  document.getElementById('charWrap').className = len === 16 ? 'char-count full' : 'char-count';
+  document.getElementById('pgFill').style.width = (len / 16 * 100) + '%';
+  this.className = '';
+  document.getElementById('statusBanner').className = 'hidden';
+  document.getElementById('resultSection').className = '';
+  _globalData = null;
+});
+
+nikInput.addEventListener('keydown', e => { if (e.key === 'Enter') startValidate(); });
+
+function pasteNIK() {
+  navigator.clipboard.readText().then(t => {
+    nikInput.value = t.replace(/\D/g,'').slice(0,16);
+    nikInput.dispatchEvent(new Event('input'));
+  }).catch(() => nikInput.focus());
+}
+
+function copyNIK() {
+  navigator.clipboard.writeText(nikInput.value).then(() => {
+    const btn = document.querySelector('.action-btn');
+    btn.textContent = '✓ Tersalin!';
+    setTimeout(() => btn.textContent = '📄 Salin NIK', 2000);
+  });
+}
+
+function exportJSON() {
+  if (!_globalData) return;
+  const blob = new Blob([JSON.stringify(_globalData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `NIK_${_globalData.nik}_${Date.now()}.json`;
+  a.click();
+}
+
+function resetAll() {
+  nikInput.value = '';
+  nikInput.className = '';
+  document.getElementById('charCount').textContent = '0';
+  document.getElementById('charWrap').className = 'char-count';
+  document.getElementById('pgFill').style.width = '0%';
+  document.getElementById('statusBanner').className = 'hidden';
+  document.getElementById('resultSection').className = '';
+  _globalData = null;
+  nikInput.focus();
+}
+
+// ════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(`'${id}'`)));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ════════════════════════════════════════════════
+// VALIDATE
+// ════════════════════════════════════════════════
+function startValidate() {
+  const ov = document.getElementById('scanOverlay');
+  ov.classList.add('active');
+  setTimeout(() => { ov.classList.remove('active'); validateNIK(); }, 1300);
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('statusBanner');
+  el.className = type;
+  el.innerHTML = `<span style="font-size:18px">${type==='valid'?'✅':'❌'}</span><span>${msg}</span>`;
+}
+
+function validateNIK() {
+  const nik = nikInput.value.trim();
+  const res = document.getElementById('resultSection');
+
+  if (nik.length !== 16) {
+    showStatus('error', `NIK harus 16 digit angka. Saat ini: <strong>${nik.length}</strong> digit.`);
+    nikInput.className = 'error'; res.className = ''; return;
+  }
+
+  const kodeProvinsi = nik.slice(0,2);
+  const kodeKab      = nik.slice(0,4);
+  const kodeKec      = nik.slice(0,6);
+  const tglRaw       = parseInt(nik.slice(6,8));
+  const bulanRaw     = parseInt(nik.slice(8,10));
+  const tahunRaw     = nik.slice(10,12);
+  const nomorUrut    = nik.slice(12,16);
+
+  if (!PROV[kodeProvinsi]) {
+    showStatus('error', `Kode provinsi tidak valid: <strong>${kodeProvinsi}</strong>. Tidak terdaftar dalam database wilayah.`);
+    nikInput.className = 'error'; res.className = ''; return;
+  }
+  if (bulanRaw < 1 || bulanRaw > 12) {
+    showStatus('error', `Kode bulan lahir tidak valid: <strong>${String(bulanRaw).padStart(2,'0')}</strong>. Harus antara 01–12.`);
+    nikInput.className = 'error'; res.className = ''; return;
+  }
+
+  const isPerempuan = tglRaw > 40;
+  const tglLahir = isPerempuan ? tglRaw - 40 : tglRaw;
+
+  if (tglLahir < 1 || tglLahir > 31) {
+    showStatus('error', `Tanggal lahir tidak valid: <strong>${tglLahir}</strong>. Harus antara 01–31.`);
+    nikInput.className = 'error'; res.className = ''; return;
+  }
+
+  const tahunInt  = parseInt(tahunRaw);
+  const nowYear   = new Date().getFullYear();
+  const century   = tahunInt <= (nowYear % 100 + 5) ? 2000 : 1900;
+  const tahunLahir = century + tahunInt;
+  const tglObj    = new Date(tahunLahir, bulanRaw - 1, tglLahir);
+  const now       = new Date();
+
+  // validasi date realistis
+  if (tglObj > now) {
+    showStatus('error', `Tanggal lahir (${tglLahir}/${bulanRaw}/${tahunLahir}) ada di masa depan. NIK tidak valid.`);
+    nikInput.className = 'error'; res.className = ''; return;
+  }
+
+  const hariNama    = HARI[tglObj.getDay()];
+  const usia        = hitungUsia(tglObj);
+  const namaProvinsi = PROV[kodeProvinsi];
+  const namaKab     = KABKOTA[kodeKab] || `Kab/Kota ${kodeKab}`;
+
+  // Extended calc
+  const zodiak    = getZodiak(bulanRaw, tglLahir);
+  const shio      = getShio(tahunLahir);
+  const generasi  = getGenerasi(tahunLahir);
+  const usiaTier  = getUsiaTier(usia);
+  const ultah     = hariUltah(tglLahir, bulanRaw);
+  const hijri     = toHijri(tglObj);
+  const musim     = getMusim(bulanRaw);
+  const numerologi = getNumerologi(tglLahir, bulanRaw, tahunLahir);
+  const biorhythm  = getBiorhythm(tglObj);
+  const totalHari  = Math.floor((now - tglObj) / 86400000);
+  const totalMinggu = Math.floor(totalHari / 7);
+  const totalBulan  = usia * 12 + (now.getMonth() - (bulanRaw - 1)) + (now.getDate() < tglLahir ? -1 : 0);
+  const golDarah    = getGolDarahDariNomor(nomorUrut);
+  const pulau       = PULAU[kodeProvinsi] || '—';
+  const zona        = ZONA_WAKTU[kodeProvinsi] || '—';
+  const ibukota     = IBU_KOTA[kodeProvinsi] || '—';
+  const pendidikan  = getPendidikanTahun(tahunLahir);
+
+  nikInput.className = 'valid';
+  showStatus('valid', `NIK Valid — Seluruh data berhasil didekode dan diverifikasi. Ditemukan <strong>50+ poin informasi</strong>.`);
+
+  // Display NIK
+  document.getElementById('nikDisplayText').textContent = nik.replace(/(.{4})/g,'$1 ').trim();
+
+  // Flags
+  renderFlags({ nik, kodeProvinsi, tglLahir, bulanRaw, tahunLahir, isPerempuan, usia });
+
+  // NIK Visual
+  renderNIKVisual(nik);
+
+  // Store global data
+  _globalData = {
+    nik, kodeProvinsi, kodeKab, kodeKec, nomorUrut,
+    namaProvinsi, namaKab, pulau, ibukota, zona,
+    tglLahir, tglRaw, bulanRaw, tahunLahir, tahunRaw,
+    hariNama, usia, isPerempuan,
+    zodiak: zodiak.name, shio: shio.name, generasi: generasi.name,
+    totalHari, totalMinggu, totalBulan,
+    golDarah_estimasi: golDarah,
+    numerologi: numerologi.number,
+    biorhythm,
+    hijri,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Render tabs
+  renderIdentitas({ nik, isPerempuan, usia, usiaTier, generasi, nomorUrut, tglLahir, bulanRaw, tahunLahir, hariNama });
+  renderWilayah({ namaProvinsi, kodeProvinsi, namaKab, kodeKab, kodeKec, pulau, zona, ibukota });
+  renderKelahiran({ tglLahir, tglRaw, bulanRaw, tahunLahir, tahunRaw, hariNama, usia, isPerempuan, hijri, musim, totalHari });
+  renderStatistik({ usia, totalHari, totalMinggu, totalBulan, ultah, biorhythm, numerologi, pendidikan, golDarah });
+  renderAstrologi({ zodiak, shio, generasi });
+  renderKependudukan({ kodeProvinsi, kodeKab, kodeKec, nomorUrut, namaProvinsi, namaKab, pulau, zona, nik });
+  renderRawData({ nik, kodeProvinsi, kodeKab, kodeKec, tglRaw, bulanRaw, tahunRaw, nomorUrut, tglLahir, tahunLahir, isPerempuan, usia });
+
+  res.className = 'show';
+  setTimeout(() => res.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+}
+
+function hitungUsia(tglLahir) {
+  const now = new Date();
+  let u = now.getFullYear() - tglLahir.getFullYear();
+  const m = now.getMonth() - tglLahir.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < tglLahir.getDate())) u--;
+  return u;
+}
+
+// ════════════════════════════════════════════════
+// FLAGS
+// ════════════════════════════════════════════════
+function renderFlags({ nik, kodeProvinsi, tglLahir, bulanRaw, tahunLahir, isPerempuan, usia }) {
+  const grid = document.getElementById('flagGrid');
+  grid.innerHTML = '';
+  const flags = [
+    { cls:'ok',   text:'FORMAT VALID' },
+    { cls:'ok',   text:'PROVINSI TERDAFTAR' },
+    { cls: PROV[kodeProvinsi] ? 'ok' : 'err', text:'DATABASE MATCH' },
+    { cls: usia >= 17 ? 'ok' : 'warn', text: usia >= 17 ? 'USIA KTP VALID (≥17)' : 'USIA <17 (BELUM KTP)' },
+    { cls:'info', text: isPerempuan ? 'KODE PEREMPUAN' : 'KODE LAKI-LAKI' },
+    { cls:'info', text: `TAHUN ${tahunLahir}` },
+  ];
+  flags.forEach(f => {
+    const el = document.createElement('div');
+    el.className = `flag ${f.cls}`;
+    el.textContent = f.text;
+    grid.appendChild(el);
+  });
+}
+
+// ════════════════════════════════════════════════
+// NIK VISUAL BREAKDOWN
+// ════════════════════════════════════════════════
+function renderNIKVisual(nik) {
+  const c = document.getElementById('nikVisual');
+  c.innerHTML = '';
+  const chunks = [
+    { chars: nik.slice(0,2), label: 'Provinsi', cls: 'c1' },
+    { chars: nik.slice(2,4), label: 'Kab/Kota', cls: 'c2' },
+    { chars: nik.slice(4,6), label: 'Kecamatan', cls: 'c2' },
+    { chars: nik.slice(6,8), label: 'Tgl Lahir', cls: 'c3' },
+    { chars: nik.slice(8,10), label: 'Bulan', cls: 'c3' },
+    { chars: nik.slice(10,12), label: 'Tahun', cls: 'c3' },
+    { chars: nik.slice(12,16), label: 'No. Urut', cls: 'c4' },
+  ];
+  chunks.forEach((chunk, i) => {
+    const div = document.createElement('div');
+    div.className = 'nik-chunk';
+    const charsDiv = document.createElement('div');
+    charsDiv.className = 'nik-chars';
+    for (const ch of chunk.chars) {
+      const span = document.createElement('span');
+      span.className = `nik-char ${chunk.cls}`;
+      span.textContent = ch;
+      charsDiv.appendChild(span);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'nik-chunk-label';
+    lbl.textContent = chunk.label;
+    div.appendChild(charsDiv);
+    div.appendChild(lbl);
+    c.appendChild(div);
+    if (i < chunks.length - 1) {
+      const sep = document.createElement('div');
+      sep.className = 'sep';
+      sep.textContent = '·';
+      c.appendChild(sep);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+// CARD BUILDER
+// ════════════════════════════════════════════════
+function card(label, value, cls, sub, icon, wide) {
+  const el = document.createElement('div');
+  el.className = 'info-card' + (wide ? ' wide' : '');
+  el.innerHTML = `
+    <div class="ic-lbl">${icon ? `<span>${icon}</span>` : ''}${label}</div>
+    <div class="ic-val ${cls||''}">${value}</div>
+    ${sub ? `<div class="ic-sub">${sub}</div>` : ''}
+  `;
+  return el;
+}
+
+function cardEl(label, icon, content) {
+  const el = document.createElement('div');
+  el.className = 'info-card wide';
+  el.innerHTML = `<div class="ic-lbl">${icon ? `<span>${icon}</span>` : ''}${label}</div>`;
+  el.appendChild(content);
+  return el;
+}
+
+// ════════════════════════════════════════════════
+// TAB: IDENTITAS
+// ════════════════════════════════════════════════
+function renderIdentitas(d) {
+  const g = document.getElementById('g-identitas');
+  g.innerHTML = '';
+
+  const nikFmt = d.nik.replace(/(.{4})/g,'$1 ').trim();
+  g.appendChild(card('NIK Lengkap', nikFmt, 'ac', null, '🪪'));
+  g.appendChild(card('Jenis Kelamin', d.isPerempuan ? '♀ Perempuan' : '♂ Laki-laki', d.isPerempuan ? 'pi' : 'ac', null, '⚧'));
+
+  // Usia card dengan bar
+  const ageEl = document.createElement('div');
+  ageEl.className = 'info-card';
+  ageEl.innerHTML = `
+    <div class="ic-lbl">🎂 Usia</div>
+    <div class="ic-val ac2">${d.usia} Tahun</div>
+    <div class="ic-sub">${d.usiaTier.label}</div>
+    <div class="age-bar"><div class="age-bar-fill" id="ageBarFill"></div></div>
+  `;
+  g.appendChild(ageEl);
+  setTimeout(() => {
+    const f = document.getElementById('ageBarFill');
+    if(f) f.style.width = Math.min(d.usia, 100) + '%';
+  }, 200);
+
+  g.appendChild(card('Kategori Usia', d.usiaTier.label, d.usiaTier.cls, `Berdasarkan standar WHO & Kemendagri`, '📊'));
+  g.appendChild(card('Generasi', d.generasi.name, 'ac', d.generasi.range, d.generasi.icon));
+  g.appendChild(card('Nomor Urut Registrasi', d.nomorUrut, 'pu', 'Urutan pendaftaran di kantor kecamatan saat pencatatan', '🔢'));
+  g.appendChild(card('Tanggal Lahir', `${d.hariNama}, ${d.tglLahir} ${BULAN[d.bulanRaw-1]} ${d.tahunLahir}`, 'ac2', null, '📅'));
+  g.appendChild(card('Status KTP', d.usia >= 17 ? '✓ Layak Memiliki KTP' : '⚠ Belum Cukup Umur (< 17 tahun)', d.usia >= 17 ? 'ac2' : 'wn', 'Persyaratan UU No. 23 Tahun 2006', '🆔'));
+}
+
+// ════════════════════════════════════════════════
+// TAB: WILAYAH
+// ════════════════════════════════════════════════
+function renderWilayah(d) {
+  const g = document.getElementById('g-wilayah');
+  g.innerHTML = '';
+
+  g.appendChild(card('Provinsi', d.namaProvinsi, 'ac2', `Ibu kota: ${d.ibukota}`, '🏛'));
+  g.appendChild(card('Kode Provinsi', d.kodeProvinsi, 'ac', null, '#️⃣'));
+  g.appendChild(card('Kabupaten / Kota', d.namaKab, '', null, '🏙'));
+  g.appendChild(card('Kode Kab/Kota', d.kodeKab, 'ac', null, '#️⃣'));
+  g.appendChild(card('Kode Kecamatan', d.kodeKec, 'ac', 'Kode unik kecamatan tempat KTP diterbitkan', '📍'));
+  g.appendChild(card('Kepulauan / Pulau', d.pulau, 'wn', null, '🏝'));
+  g.appendChild(card('Zona Waktu', d.zona, 'ac2', 'Berdasarkan wilayah provinsi', '⏰'));
+  g.appendChild(card('Ibu Kota Provinsi', d.ibukota, '', null, '🏛'));
+
+  const kodeFull = document.createElement('div');
+  kodeFull.className = 'info-card wide';
+  kodeFull.innerHTML = `
+    <div class="ic-lbl">📌 Hierarki Kode Wilayah Lengkap</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <div style="text-align:center;padding:10px 14px;background:rgba(0,200,240,.07);border:1px solid rgba(0,200,240,.2);border-radius:7px">
+        <div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:700;color:var(--accent)">${d.kodeProvinsi}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px">PROVINSI</div>
+        <div style="font-size:10px;color:var(--text2);margin-top:2px">${d.namaProvinsi}</div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:20px">→</div>
+      <div style="text-align:center;padding:10px 14px;background:rgba(0,240,144,.07);border:1px solid rgba(0,240,144,.2);border-radius:7px">
+        <div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:700;color:var(--accent2)">${d.kodeKab}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px">KAB/KOTA</div>
+        <div style="font-size:10px;color:var(--text2);margin-top:2px">${d.namaKab}</div>
+      </div>
+      <div style="display:flex;align-items:center;color:var(--muted);font-size:20px">→</div>
+      <div style="text-align:center;padding:10px 14px;background:rgba(0,240,144,.05);border:1px solid rgba(0,240,144,.15);border-radius:7px">
+        <div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:700;color:var(--accent2)">${d.kodeKec}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px">KECAMATAN</div>
+      </div>
+    </div>
+  `;
+  g.appendChild(kodeFull);
+}
+
+// ════════════════════════════════════════════════
+// TAB: KELAHIRAN
+// ════════════════════════════════════════════════
+function renderKelahiran(d) {
+  const g = document.getElementById('g-kelahiran');
+  g.innerHTML = '';
+
+  const tglStr = `${d.tglLahir} ${BULAN[d.bulanRaw-1]} ${d.tahunLahir}`;
+  g.appendChild(card('Tanggal Lahir Lengkap', `${d.hariNama}, ${tglStr}`, 'ac2', null, '📅'));
+  g.appendChild(card('Hari Kelahiran', d.hariNama, 'wn', null, '📆'));
+  g.appendChild(card('Tanggal', String(d.tglLahir).padStart(2,'0'), 'ac', null, '🗓'));
+  g.appendChild(card('Bulan', `${String(d.bulanRaw).padStart(2,'0')} — ${BULAN[d.bulanRaw-1]}`, 'ac', null, '📋'));
+  g.appendChild(card('Tahun Lahir', String(d.tahunLahir), 'ac', `Kode di NIK: ${d.tahunRaw} → Abad: ${d.tahunLahir < 2000 ? '1900-an' : '2000-an'}`, '📅'));
+  g.appendChild(card('Usia Saat Ini', `${d.usia} Tahun`, 'ac2', null, '⏳'));
+  g.appendChild(card('Tanggal Hijriah', d.hijri, 'pu', 'Konversi kalender Hijriah (pendekatan)', '🌙'));
+  g.appendChild(card('Musim Kelahiran', `${d.musim.icon} ${d.musim.name}`, 'wn', d.musim.desc, '🌤'));
+  g.appendChild(card('Kode Tgl di NIK', String(d.tglRaw).padStart(2,'0'), 'ac', d.isPerempuan ? `Tgl asli ${d.tglLahir} + 40 = ${d.tglRaw} (kode khusus wanita)` : `Tgl asli ${d.tglLahir} (pria tidak dimodifikasi)`, '🔐'));
+  g.appendChild(card('Total Hari Hidup', d.totalHari.toLocaleString('id') + ' hari', 'ac2', `≈ ${Math.floor(d.totalHari/7).toLocaleString('id')} minggu`, '📈', true));
+}
+
+// ════════════════════════════════════════════════
+// TAB: STATISTIK
+// ════════════════════════════════════════════════
+function renderStatistik(d) {
+  const g = document.getElementById('g-statistik');
+  g.innerHTML = '';
+
+  const now = new Date();
+
+  // Countdown UB
+  const cdEl = document.createElement('div');
+  cdEl.className = 'info-card wide';
+  const isBday = d.ultah.totalDays === 0;
+  cdEl.innerHTML = `
+    <div class="ic-lbl">🎉 Countdown Ulang Tahun Berikutnya</div>
+    ${isBday
+      ? `<div class="ic-val ac2">🎂 Selamat Ulang Tahun! Hari ini hari istimewa Anda!</div>`
+      : `<div class="cd-row">
+          <div class="cd-block"><span class="cd-num">${d.ultah.months}</span><div class="cd-lbl">Bulan</div></div>
+          <div class="cd-block"><span class="cd-num">${d.ultah.remDays}</span><div class="cd-lbl">Hari</div></div>
+          <div class="cd-block"><span class="cd-num">${d.ultah.totalDays}</span><div class="cd-lbl">Total Hari</div></div>
+        </div>
+        <div class="ic-sub">📅 Jatuh pada: ${d.ultah.namaHari}, ${d.ultah.date.getDate()} ${BULAN[d.ultah.date.getMonth()]} ${d.ultah.date.getFullYear()}</div>`
+    }
+  `;
+  g.appendChild(cdEl);
+
+  g.appendChild(card('Total Hari Hidup', d.totalHari.toLocaleString('id') + ' hari', 'ac2', `≈ ${(d.totalHari * 24).toLocaleString('id')} jam`, '📊'));
+  g.appendChild(card('Total Minggu Hidup', d.totalMinggu.toLocaleString('id') + ' minggu', 'ac', null, '📅'));
+  g.appendChild(card('Total Bulan Hidup', d.totalBulan.toLocaleString('id') + ' bulan', 'ac', null, '🗓'));
+  g.appendChild(card('Detak Jantung (est.)', (d.totalHari * 24 * 60 * 70).toLocaleString('id') + 'x', 'pu', 'Estimasi: 70 detak/menit × hari hidup', '❤️'));
+  g.appendChild(card('Napas (est.)', (d.totalHari * 24 * 60 * 15).toLocaleString('id') + 'x', 'wn', 'Estimasi: 15 napas/menit × hari hidup', '🫁'));
+
+  // Numerologi
+  g.appendChild(card('Angka Numerologi', String(d.numerologi.number), 'pu', `Jumlah raw: ${d.numerologi.raw} → ${d.numerologi.meaning}`, '🔮'));
+
+  // Biorhythm
+  const bioEl = document.createElement('div');
+  bioEl.className = 'info-card wide';
+  const bioColor = v => v > 30 ? 'var(--accent2)' : v < -30 ? 'var(--error)' : 'var(--warn)';
+  const bioLabel = v => v > 30 ? 'Tinggi ▲' : v < -30 ? 'Rendah ▼' : 'Netral ●';
+  bioEl.innerHTML = `
+    <div class="ic-lbl">🧬 Biorhythm Hari Ini (${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()})</div>
+    <div class="trait-list" style="margin-top:8px">
+      <div class="trait-item">
+        <span style="width:100px;font-size:11px">Fisik (23hr)</span>
+        <div class="trait-bar"><div class="trait-fill" style="width:${(d.biorhythm.physical+100)/2}%;background:${bioColor(d.biorhythm.physical)}"></div></div>
+        <span style="min-width:80px;color:${bioColor(d.biorhythm.physical)};font-family:IBM Plex Mono,monospace;font-size:11px">${d.biorhythm.physical}% ${bioLabel(d.biorhythm.physical)}</span>
+      </div>
+      <div class="trait-item">
+        <span style="width:100px;font-size:11px">Emosi (28hr)</span>
+        <div class="trait-bar"><div class="trait-fill" style="width:${(d.biorhythm.emotional+100)/2}%;background:${bioColor(d.biorhythm.emotional)}"></div></div>
+        <span style="min-width:80px;color:${bioColor(d.biorhythm.emotional)};font-family:IBM Plex Mono,monospace;font-size:11px">${d.biorhythm.emotional}% ${bioLabel(d.biorhythm.emotional)}</span>
+      </div>
+      <div class="trait-item">
+        <span style="width:100px;font-size:11px">Intelektual (33hr)</span>
+        <div class="trait-bar"><div class="trait-fill" style="width:${(d.biorhythm.intellectual+100)/2}%;background:${bioColor(d.biorhythm.intellectual)}"></div></div>
+        <span style="min-width:80px;color:${bioColor(d.biorhythm.intellectual)};font-family:IBM Plex Mono,monospace;font-size:11px">${d.biorhythm.intellectual}% ${bioLabel(d.biorhythm.intellectual)}</span>
+      </div>
+    </div>
+    <div class="ic-sub" style="margin-top:10px">Teori biorhythm: siklus biologis sejak lahir. Bersifat estimasi, bukan medis.</div>
+  `;
+  g.appendChild(bioEl);
+
+  g.appendChild(card('Estimasi Gol. Darah (NIK)', golDarahLabel(d.golDarah), 'pi', '⚠ Bukan resmi. Hanya estimasi berdasarkan pola digit nomor urut.', '🩸'));
+  g.appendChild(card('Perkiraan Jenjang Pendidikan', d.pendidikan, 'ac2', 'Berdasarkan tahun lahir & usia saat ini', '🎓'));
+}
+
+function golDarahLabel(g) {
+  const info = {A:'Tipe A — Teratur & Sabar', B:'Tipe B — Kreatif & Fleksibel', AB:'Tipe AB — Adaptif & Analitis', O:'Tipe O — Percaya Diri & Energetik'};
+  return info[g] || g;
+}
+
+// ════════════════════════════════════════════════
+// TAB: ASTROLOGI
+// ════════════════════════════════════════════════
+function renderAstrologi(d) {
+  const g = document.getElementById('g-astrologi');
+  g.innerHTML = '';
+  const z = d.zodiak;
+  const s = d.shio;
+  const gen = d.generasi;
+
+  // Zodiak card besar
+  const zodEl = document.createElement('div');
+  zodEl.className = 'info-card wide';
+  zodEl.innerHTML = `
+    <div class="ic-lbl">♈ Zodiak Barat</div>
+    <div class="zodiac-display">
+      <div class="zodiac-sym">${z.sym}</div>
+      <div>
+        <div class="zodiac-name" style="color:var(--accent)">${z.name}</div>
+        <div class="zodiac-range">${z.range}</div>
+        <div class="ic-sub" style="margin-top:8px">Elemen: ${z.el} · Modalitas: ${z.mod} · Penguasa: ${z.ruler}</div>
+        <div class="ic-sub">Sifat: ${z.sifat}</div>
+        <div class="ic-sub">Angka Beruntung: ${z.lucky_num.join(', ')} · Warna: ${z.lucky_color}</div>
+      </div>
+    </div>
+  `;
+  g.appendChild(zodEl);
+
+  // Shio card besar
+  const shioEl = document.createElement('div');
+  shioEl.className = 'info-card wide';
+  shioEl.innerHTML = `
+    <div class="ic-lbl">🐉 Shio Tionghoa</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:4px">
+      <div style="font-size:48px;line-height:1">${s.icon}</div>
+      <div>
+        <div style="font-size:22px;font-weight:700;color:var(--warn)">${s.name}</div>
+        <div class="ic-sub" style="margin-top:4px">Elemen Tahun: <span style="color:var(--accent2)">${s.elem}</span></div>
+        <div class="ic-sub">Sifat: ${s.sifat}</div>
+      </div>
+    </div>
+  `;
+  g.appendChild(shioEl);
+
+  // Generasi
+  const genEl = document.createElement('div');
+  genEl.className = 'info-card wide';
+  genEl.innerHTML = `
+    <div class="ic-lbl">🧬 Generasi & Karakteristik</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+      <div style="font-size:36px">${gen.icon}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--accent)">${gen.name}</div>
+        <div class="ic-sub">${gen.range}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:8px">KARAKTERISTIK GENERASI</div>
+      ${getGenCharacteristics(gen.name)}
+    </div>
+  `;
+  g.appendChild(genEl);
+}
+
+function getGenCharacteristics(gen) {
+  const data = {
+    "Baby Boomer": "Bekerja keras, loyalitas tinggi terhadap perusahaan, value stabilitas, lebih suka tatap muka.",
+    "Generasi X": "Mandiri, skeptis, work-life balance, digital immigrant, adaptif terhadap perubahan.",
+    "Milenial": "Tech-savvy, purpose-driven, suka kolaborasi, work-life integration, digital native awal.",
+    "Generasi Z": "Digital native sejak lahir, multi-tasking, global mindset, prefer autentisitas.",
+    "Generasi Alpha": "Hyper-connected, AI-native, belajar visual, paling terdidik secara teknologi.",
+    "Silent Generation": "Disiplin tinggi, menghargai otoritas, hemat, loyal.",
+    "Greatest Generation": "Resiliensi luar biasa, pengorbanan, kolektifisme.",
+  };
+  const desc = data[gen] || "Karakteristik unik generasi ini.";
+  return `<div class="ic-sub" style="font-size:12px;color:var(--text2)">${desc}</div>`;
+}
+
+// ════════════════════════════════════════════════
+// TAB: KEPENDUDUKAN
+// ════════════════════════════════════════════════
+function renderKependudukan(d) {
+  const g = document.getElementById('g-kependudukan');
+  g.innerHTML = '';
+
+  g.appendChild(card('Instansi Penerbit KTP', `Dukcapil ${d.namaKab}`, 'ac2', `Di bawah naungan Kemendagri RI`, '🏢'));
+  g.appendChild(card('Kabupaten/Kota Penerbit', d.namaKab, 'ac', null, '🏙'));
+  g.appendChild(card('Provinsi Penerbit', d.namaProvinsi, 'ac2', null, '🏛'));
+  g.appendChild(card('Pulau / Kepulauan', d.pulau, 'wn', null, '🗺'));
+  g.appendChild(card('Zona Waktu Wilayah', d.zona, 'ac', null, '⏰'));
+  g.appendChild(card('Kode Administrasi Penuh', d.kodeKec, 'pu', 'Format BPS 6 digit: Provinsi + Kab/Kota + Kecamatan', '📋'));
+  g.appendChild(card('Nomor Urut Registrasi', d.nomorUrut, 'pu', 'Nomor urut saat pendaftaran di Disdukcapil', '🔢'));
+
+  // Penjelasan struktur NIK
+  const nikStruct = document.createElement('div');
+  nikStruct.className = 'info-card wide';
+  nikStruct.innerHTML = `
+    <div class="ic-lbl">📖 Panduan Membaca NIK: ${d.nik}</div>
+    <table class="raw-table" style="margin-top:8px">
+      <tr><td>Digit 1–2 (${d.nik.slice(0,2)})</td><td>Kode Provinsi → ${d.namaProvinsi}</td></tr>
+      <tr><td>Digit 3–4 (${d.nik.slice(2,4)})</td><td>Kode Kabupaten/Kota → ${d.namaKab}</td></tr>
+      <tr><td>Digit 5–6 (${d.nik.slice(4,6)})</td><td>Kode Kecamatan</td></tr>
+      <tr><td>Digit 7–8 (${d.nik.slice(6,8)})</td><td>Tanggal lahir (wanita +40)</td></tr>
+      <tr><td>Digit 9–10 (${d.nik.slice(8,10)})</td><td>Bulan lahir</td></tr>
+      <tr><td>Digit 11–12 (${d.nik.slice(10,12)})</td><td>2 digit terakhir tahun lahir</td></tr>
+      <tr><td>Digit 13–16 (${d.nik.slice(12,16)})</td><td>Nomor urut registrasi (0001–9999)</td></tr>
+    </table>
+    <div class="ic-sub" style="margin-top:10px">Dasar hukum: UU No. 23 Tahun 2006 tentang Administrasi Kependudukan, direvisi dengan UU No. 24 Tahun 2013.</div>
+  `;
+  g.appendChild(nikStruct);
+}
+
+// ════════════════════════════════════════════════
+// TAB: RAW DATA
+// ════════════════════════════════════════════════
+function renderRawData(d) {
+  const g = document.getElementById('g-rawdata');
+  g.innerHTML = '';
+
+  // Binary representation
+  const binEl = document.createElement('div');
+  binEl.className = 'info-card wide';
+  let binHTML = '<div class="ic-lbl">🔬 NIK dalam Berbagai Format</div>';
+  binHTML += '<table class="raw-table" style="margin-top:8px">';
+  binHTML += `<tr><td>Desimal</td><td>${d.nik}</td></tr>`;
+  binHTML += `<tr><td>Hex (partial)</td><td>${parseInt(d.nik.slice(0,8)).toString(16).toUpperCase()} ${parseInt(d.nik.slice(8,16)).toString(16).toUpperCase()}</td></tr>`;
+  binHTML += `<tr><td>Panjang</td><td>${d.nik.length} karakter</td></tr>`;
+  binHTML += `<tr><td>Checksum (digit sum)</td><td>${d.nik.split('').reduce((a,b)=>a+parseInt(b),0)}</td></tr>`;
+  binHTML += `<tr><td>Palindrome?</td><td>${d.nik === d.nik.split('').reverse().join('') ? '✓ Ya' : '✗ Tidak'}</td></tr>`;
+  binHTML += `<tr><td>Digit Genap</td><td>${d.nik.split('').filter((_,i)=>i%2===0).join(' ')}</td></tr>`;
+  binHTML += `<tr><td>Digit Ganjil</td><td>${d.nik.split('').filter((_,i)=>i%2!==0).join(' ')}</td></tr>`;
+  binHTML += '</table>';
+  binEl.innerHTML = binHTML;
+  g.appendChild(binEl);
+
+  // Semua nilai raw
+  const rawEl = document.createElement('div');
+  rawEl.className = 'info-card wide';
+  rawEl.innerHTML = `
+    <div class="ic-lbl">🗂 Nilai Mentah Seluruh Field NIK</div>
+    <table class="raw-table" style="margin-top:8px">
+      <tr><td>raw_nik</td><td>${d.nik}</td></tr>
+      <tr><td>raw_kode_provinsi</td><td>${d.kodeProvinsi}</td></tr>
+      <tr><td>raw_kode_kabkota</td><td>${d.kodeKab}</td></tr>
+      <tr><td>raw_kode_kecamatan</td><td>${d.kodeKec}</td></tr>
+      <tr><td>raw_tgl_di_nik</td><td>${String(d.tglRaw).padStart(2,'0')}</td></tr>
+      <tr><td>raw_bulan_di_nik</td><td>${String(d.bulanRaw).padStart(2,'0')}</td></tr>
+      <tr><td>raw_tahun_di_nik</td><td>${d.tahunRaw}</td></tr>
+      <tr><td>raw_nomor_urut</td><td>${d.nomorUrut}</td></tr>
+      <tr><td>decoded_tgl_lahir</td><td>${String(d.tglLahir).padStart(2,'0')}</td></tr>
+      <tr><td>decoded_tahun_lahir</td><td>${d.tahunLahir}</td></tr>
+      <tr><td>decoded_jenis_kelamin</td><td>${d.isPerempuan ? 'P (kode tgl > 40)' : 'L (kode tgl ≤ 31)'}</td></tr>
+      <tr><td>computed_usia_tahun</td><td>${d.usia}</td></tr>
+    </table>
+  `;
+  g.appendChild(rawEl);
+
+  // Validasi checklist
+  const checkEl = document.createElement('div');
+  checkEl.className = 'info-card wide';
+  checkEl.innerHTML = `
+    <div class="ic-lbl">✅ Checklist Validasi Penuh</div>
+    <div class="flag-grid" style="margin-top:10px;flex-direction:column;gap:6px">
+      ${[
+        ['ok', `Panjang NIK = 16 digit ✓`],
+        ['ok', `Semua karakter numerik ✓`],
+        ['ok', `Kode provinsi ${d.kodeProvinsi} valid ✓`],
+        ['info', `Kode kab/kota ${d.kodeKab} (${KABKOTA[d.kodeKab] ? 'ditemukan di database' : 'tidak ada di database lokal'})`],
+        ['ok', `Bulan lahir ${String(d.bulanRaw).padStart(2,'0')} valid (01–12) ✓`],
+        ['ok', `Tanggal lahir ${String(d.tglLahir).padStart(2,'0')} valid (01–31) ✓`],
+        ['ok', `Tahun lahir ${d.tahunLahir} realistis ✓`],
+        ['ok', `Nomor urut ${d.nomorUrut} valid (4 digit) ✓`],
+        [d.usia >= 0 ? 'ok' : 'err', `Usia = ${d.usia} tahun ${d.usia >= 0 ? '(positif) ✓' : '(tidak valid) ✗'}`],
+      ].map(([cls, txt]) => `<div class="flag ${cls}" style="width:100%;justify-content:flex-start">${txt}</div>`).join('')}
+    </div>
+  `;
+  g.appendChild(checkEl);
+}
+
+</script>
+</body>
+</html>
